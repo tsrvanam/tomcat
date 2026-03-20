@@ -1,0 +1,963 @@
+# 🚀 End-to-End Guide: Deploying a WAR File from Maven to Apache Tomcat
+
+This guide explains how to install Java, install Apache Tomcat, configure remote access to the Tomcat Manager applications, build a `.war` file using Maven, transfer it to the Tomcat server, and deploy it.
+
+It is written for beginners, so each step includes:
+
+- what to do
+- why you are doing it
+- what happens after the step
+
+---
+
+# 📚 What You Will Learn
+
+By following this guide, you will learn how to:
+
+- install Java on a Linux server
+- install Apache Tomcat manually
+- start and stop Tomcat
+- configure Tomcat Manager and Host Manager
+- create login users for Tomcat admin pages
+- optionally change Tomcat’s port
+- build a Java web application as a WAR file using Maven
+- transfer the WAR file to another server
+- deploy the WAR file in Tomcat
+- verify that the application is working
+
+---
+
+# 🧰 Prerequisites
+
+Before starting, make sure you have:
+
+- an Ubuntu or Debian-based Linux machine
+- terminal access to that machine
+- internet access on the server
+- a Java Maven web application project
+- basic knowledge of Linux commands
+- SSH key access if you are using a remote server like AWS EC2
+
+---
+
+# 1. Switch to the Root User
+
+```bash
+sudo su -
+```
+
+## Why are we doing this?
+
+Some installation and configuration steps require administrative privileges. Switching to the root user gives you permission to install packages, write into system directories like `/opt`, and edit Tomcat configuration files.
+
+## What happens after this step?
+
+You get full administrative control in the terminal session.
+
+---
+
+# 2. Update the Package Index
+
+```bash
+apt update
+```
+
+## Why are we doing this?
+
+This refreshes the package list on your Linux machine. It helps the system know the latest versions of available packages.
+
+## What happens after this step?
+
+Your system is ready to install the latest available packages without using outdated package references.
+
+---
+
+# 3. Install Java
+
+```bash
+apt install openjdk-21-jdk -y
+java -version
+```
+
+## Why are we doing this?
+
+Tomcat is a Java-based application server. It cannot run unless Java is installed. The `java -version` command is used to verify that Java was installed successfully.
+
+## What happens after this step?
+
+Your machine will have Java installed, and Tomcat will be able to run on top of the Java Virtual Machine (JVM).
+
+## Expected output
+
+You should see something similar to:
+
+```bash
+openjdk version "21.x.x"
+```
+
+---
+
+# 4. Install Supporting Utilities
+
+```bash
+apt install unzip wget -y
+```
+
+## Why are we doing this?
+
+You need:
+
+- `wget` to download files from the internet
+- `unzip` to extract the downloaded Tomcat zip file
+
+## What happens after this step?
+
+Your machine can download and extract the Tomcat archive.
+
+---
+
+# 5. Move to the `/opt` Directory
+
+```bash
+cd /opt
+```
+
+## Why are we doing this?
+
+The `/opt` directory is commonly used for installing third-party software manually on Linux systems. Installing Tomcat here keeps it organized and easy to manage.
+
+## What happens after this step?
+
+You are in the directory where Tomcat will be downloaded and extracted.
+
+---
+
+# 6. Download Apache Tomcat
+
+```bash
+wget https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.106/bin/apache-tomcat-9.0.106.zip
+```
+
+## Why are we doing this?
+
+This command downloads the Tomcat zip package from the official Apache distribution site.
+
+## What happens after this step?
+
+A file named `apache-tomcat-9.0.106.zip` will be downloaded into `/opt`.
+
+---
+
+# 7. Extract the Tomcat Archive
+
+```bash
+unzip apache-tomcat-9.0.106.zip
+```
+
+## Why are we doing this?
+
+The downloaded Tomcat package is compressed. You must extract it before you can use it.
+
+## What happens after this step?
+
+A new Tomcat directory will be created:
+
+```text
+/opt/apache-tomcat-9.0.106
+```
+
+---
+
+# 8. Move to the Tomcat `bin` Directory
+
+```bash
+cd /opt/apache-tomcat-9.0.106/bin
+```
+
+## Why are we doing this?
+
+Tomcat’s startup and shutdown scripts are stored in the `bin` directory.
+
+## What happens after this step?
+
+You are now in the folder containing Tomcat’s executable shell scripts.
+
+---
+
+# 9. Give Execute Permission to Shell Scripts
+
+```bash
+chmod u+x *.sh
+```
+
+## Why are we doing this?
+
+Shell scripts need execute permission before Linux allows them to run.
+
+## What happens after this step?
+
+All `.sh` files in the `bin` directory become executable for the current user.
+
+---
+
+# 10. Start Tomcat
+
+You can use either of the following commands:
+
+```bash
+sh startup.sh
+```
+
+or
+
+```bash
+sh catalina.sh start
+```
+
+## Why are we doing this?
+
+This starts the Tomcat server.
+
+## What happens after this step?
+
+Tomcat starts in the background and begins listening on port `8080` by default.
+
+---
+
+# 11. Verify That Tomcat Is Running
+
+Open this URL in your browser:
+
+```text
+http://<your-server-ip>:8080
+```
+
+## Why are we doing this?
+
+This confirms that Tomcat has started successfully and is reachable from the browser.
+
+## What happens after this step?
+
+If everything is working, you should see the Tomcat default home page.
+
+## If it does not open
+
+Check:
+
+- whether Tomcat actually started
+- whether port `8080` is open in the firewall or security group
+- whether Java is installed correctly
+
+---
+
+# 12. Create Shortcut Commands for Starting and Stopping Tomcat (Optional)
+
+```bash
+ln -s /opt/apache-tomcat-9.0.106/bin/startup.sh /usr/bin/startTomcat
+ln -s /opt/apache-tomcat-9.0.106/bin/shutdown.sh /usr/bin/stopTomcat
+```
+
+## Why are we doing this?
+
+These symbolic links let you start and stop Tomcat using short commands instead of typing the full path each time.
+
+## What happens after this step?
+
+You can use:
+
+```bash
+startTomcat
+stopTomcat
+```
+
+from anywhere in the terminal.
+
+---
+
+# 13. Understand Why Tomcat Manager and Host Manager Are Blocked
+
+By default, Tomcat restricts access to admin pages like:
+
+- `/manager/html`
+- `/host-manager/html`
+
+These applications are usually allowed only from `localhost` for security reasons.
+
+## Why is this important?
+
+If you try to open those pages from your laptop or a remote browser, Tomcat may show `403 Forbidden` even if the server is running properly.
+
+---
+
+# 14. Enable Remote Access to the Tomcat Manager App
+
+Move to the Manager app configuration folder:
+
+```bash
+cd /opt/apache-tomcat-9.0.106/webapps/manager/META-INF
+vi context.xml
+```
+
+Find this block:
+
+```xml
+<Valve className="org.apache.catalina.valves.RemoteAddrValve"
+       allow="127\.\d+\.\d+\.\d+|::1|0:0:0:0:0:0:0:1" />
+```
+
+Comment it like this:
+
+```xml
+<!--
+<Valve className="org.apache.catalina.valves.RemoteAddrValve"
+       allow="127\.\d+\.\d+\.\d+|::1|0:0:0:0:0:0:0:1" />
+-->
+```
+
+## Why are we doing this?
+
+This Valve restricts access so only the local machine can open the Manager app. Commenting it removes that restriction and allows remote access.
+
+## What happens after this step?
+
+You will be able to access `/manager/html` remotely after Tomcat is restarted.
+
+## Important note
+
+This is okay for practice or lab environments, but in real production environments you should not leave this open to everyone.
+
+---
+
+# 15. Enable Remote Access to the Host Manager App
+
+Move to the Host Manager configuration folder:
+
+```bash
+cd /opt/apache-tomcat-9.0.106/webapps/host-manager/META-INF
+vi context.xml
+```
+
+Find the same `RemoteAddrValve` block and comment it:
+
+```xml
+<!--
+<Valve className="org.apache.catalina.valves.RemoteAddrValve"
+       allow="127\.\d+\.\d+\.\d+|::1|0:0:0:0:0:0:0:1" />
+-->
+```
+
+## Why are we doing this?
+
+Just like the Manager app, the Host Manager app is restricted to localhost by default.
+
+## What happens after this step?
+
+You will be able to access `/host-manager/html` remotely after restarting Tomcat.
+
+---
+
+# 16. Create Tomcat Users and Roles
+
+Move to the Tomcat configuration directory:
+
+```bash
+cd /opt/apache-tomcat-9.0.106/conf
+vi tomcat-users.xml
+```
+
+Add the following lines inside the `<tomcat-users>` tag:
+
+```xml
+<role rolename="manager-gui"/>
+<role rolename="admin-gui"/>
+
+<user username="admin1" password="StrongPassword123" roles="manager-gui,admin-gui"/>
+<user username="admin2" password="StrongPassword123" roles="manager-gui,admin-gui"/>
+```
+
+A full example may look like this:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<tomcat-users xmlns="http://tomcat.apache.org/xml"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://tomcat.apache.org/xml tomcat-users.xsd"
+              version="1.0">
+
+    <role rolename="manager-gui"/>
+    <role rolename="admin-gui"/>
+
+    <user username="admin1" password="StrongPassword123" roles="manager-gui,admin-gui"/>
+    <user username="admin2" password="StrongPassword123" roles="manager-gui,admin-gui"/>
+
+</tomcat-users>
+```
+
+## Why are we doing this?
+
+Tomcat Manager and Host Manager require authentication. Without defining users and roles, you cannot log into those admin pages.
+
+## What happens after this step?
+
+You will have usernames and passwords that can log into:
+
+- `http://<ip>:8080/manager/html`
+- `http://<ip>:8080/host-manager/html`
+
+## About the roles
+
+- `manager-gui` gives access to the Tomcat Manager web interface
+- `admin-gui` gives access to the Host Manager web interface
+
+---
+
+# 17. Optionally Change the Tomcat Port
+
+Open the `server.xml` file:
+
+```bash
+cd /opt/apache-tomcat-9.0.106/conf
+vi server.xml
+```
+
+Look for a line like this:
+
+```xml
+<Connector port="8080" protocol="HTTP/1.1"
+           connectionTimeout="20000"
+           redirectPort="8443" />
+```
+
+Change the port if needed, for example from `8080` to `9090`:
+
+```xml
+<Connector port="9090" protocol="HTTP/1.1"
+           connectionTimeout="20000"
+           redirectPort="8443" />
+```
+
+## Why are we doing this?
+
+You may need to change the port if:
+
+- port `8080` is already being used by another application
+- your organization uses a different standard port
+- you want to avoid conflicts
+
+## What happens after this step?
+
+Tomcat will run on the new port after restart.
+
+For example:
+
+```text
+http://<your-server-ip>:9090
+```
+
+---
+
+# 18. Restart Tomcat to Apply Configuration Changes
+
+Stop and start Tomcat again:
+
+```bash
+cd /opt/apache-tomcat-9.0.106/bin
+sh catalina.sh stop
+sh catalina.sh start
+```
+
+## Why are we doing this?
+
+Tomcat reads configuration files only when it starts. Any changes made to:
+
+- `context.xml`
+- `tomcat-users.xml`
+- `server.xml`
+
+will not take effect until Tomcat is restarted.
+
+## What happens after this step?
+
+All your new settings become active.
+
+---
+
+# 19. Access the Tomcat Admin Pages
+
+Open these URLs in your browser:
+
+```text
+http://<your-server-ip>:8080/manager/html
+http://<your-server-ip>:8080/host-manager/html
+```
+
+If you changed the port, use that port instead.
+
+## Why are we doing this?
+
+This verifies that:
+
+- the apps are reachable remotely
+- your username and password work
+- the admin applications are enabled correctly
+
+## What happens after this step?
+
+Tomcat will ask for a username and password. Use the credentials from `tomcat-users.xml`.
+
+---
+
+# 20. Build the WAR File from Your Maven Project
+
+Go to your Maven project directory (pom.xml) and run:
+
+```bash
+mvn clean package
+```
+
+## Why are we doing this?
+
+This compiles your Java source code, runs the build lifecycle, and packages your web application into a `.war` file.
+
+## What happens after this step?
+
+A WAR file is generated in the `target` folder.
+
+Example:
+
+```text
+target/maven-web-application.war
+```
+
+## What is a WAR file?
+
+A WAR (Web Application Archive) is a packaged Java web application that Tomcat can deploy.
+
+---
+
+# 21. Verify the Generated WAR File
+
+Run:
+
+```bash
+ls -l target/
+```
+
+## Why are we doing this?
+
+You should confirm that the `.war` file was created successfully before attempting deployment.
+
+## What happens after this step?
+
+You can identify the correct WAR file name for transfer and deployment.
+
+---
+
+# 22. Copy the WAR File to a Temporary Directory (Optional)
+
+On the machine where Maven build happened:
+
+```bash
+cp target/maven-web-application.war /tmp/
+```
+
+## Why are we doing this?
+
+This is optional, but sometimes it is convenient to place the WAR file in `/tmp` before transferring it to another server.
+
+## What happens after this step?
+
+The WAR file becomes easier to reference for copying or transferring.
+
+---
+
+# 23. Transfer the WAR File to the Tomcat Server Using SCP
+
+From your local machine or another server, use:
+
+```bash
+scp -i ~/Downloads/your-key.pem /path/to/maven-web-application.war ubuntu@<server-ip>:/opt/apache-tomcat-9.0.106/webapps/
+```
+
+Example:
+
+```bash
+scp -i ~/Downloads/my-key.pem target/maven-web-application.war ubuntu@54.123.45.67:/opt/apache-tomcat-9.0.106/webapps/
+```
+
+## Why are we doing this?
+
+This securely copies the WAR file to the Tomcat server over SSH.
+
+## What happens after this step?
+
+The WAR file is placed in the `webapps` folder where Tomcat can deploy it.
+
+## About the destination folder
+
+Tomcat automatically monitors the `webapps` directory. When a WAR file is copied there, Tomcat extracts and deploys it automatically.
+
+---
+
+# 24. Alternative Deployment Method: Upload Through Tomcat Manager
+
+Instead of copying directly into `webapps`, you can also deploy using the Tomcat Manager web interface.
+
+## Steps
+
+1. Open:
+
+```text
+http://<server-ip>:8080/manager/html
+```
+
+2. Log in with your Tomcat admin credentials
+3. Go to the **Deploy** section
+4. Choose the WAR file from your local machine
+5. Click **Deploy**
+
+## Why are we doing this?
+
+This is useful when you want to deploy from the browser instead of the command line.
+
+## What happens after this step?
+
+Tomcat uploads the WAR file and deploys it.
+
+---
+
+# 25. Understand Tomcat Auto Deployment
+
+If you copied the WAR file into:
+
+```text
+/opt/apache-tomcat-9.0.106/webapps/
+```
+
+Tomcat will usually do the following automatically:
+
+- detect the new WAR file
+- extract it into a folder with the same application name
+- deploy the application
+
+For example, if the file is:
+
+```text
+maven-web-application.war
+```
+
+Tomcat may extract it to:
+
+```text
+/opt/apache-tomcat-9.0.106/webapps/maven-web-application/
+```
+
+## Why is this useful?
+
+You do not need to manually unzip or configure the application. Tomcat handles it.
+
+---
+
+# 26. Access the Deployed Application
+
+Open the application URL in the browser:
+
+```text
+http://<your-server-ip>:8080/maven-web-application
+```
+
+If you changed the port, use that port.
+
+Example:
+
+```text
+http://54.123.45.67:8080/maven-web-application
+```
+
+## Why are we doing this?
+
+This verifies that your WAR file was deployed successfully.
+
+## What happens after this step?
+
+If deployment succeeded, your web application should load in the browser.
+
+---
+
+# 27. Common Directory Structure You Should Know
+
+Here are some important Tomcat directories:
+
+```text
+/opt/apache-tomcat-9.0.106/
+├── bin
+├── conf
+├── lib
+├── logs
+├── temp
+├── webapps
+└── work
+```
+
+## Meaning of each folder
+
+- `bin` → startup and shutdown scripts
+- `conf` → configuration files
+- `lib` → shared libraries
+- `logs` → Tomcat log files
+- `temp` → temporary files
+- `webapps` → deployed applications
+- `work` → compiled JSP and runtime files
+
+---
+
+# 28. Important Security Notes
+
+This guide is good for learning and practice, but in real environments you should be more careful.
+
+## Recommended precautions
+
+- do not leave Manager and Host Manager open to all IPs in production
+- restrict port access using firewall or cloud security groups
+- allow admin pages only from trusted IP addresses
+- use HTTPS in real environments
+- consider using a reverse proxy like Nginx or Apache HTTP Server
+
+## Why does this matter?
+
+Manager and Host Manager are administrative interfaces. If exposed publicly with weak credentials, your server can be compromised.
+
+---
+
+# 29. Useful Troubleshooting Commands
+
+## Check whether Tomcat is running
+
+```bash
+ps -ef | grep tomcat
+```
+
+## Check whether port 8080 is listening
+
+```bash
+ss -tulnp | grep 8080
+```
+
+or
+
+```bash
+netstat -tulnp | grep 8080
+```
+
+## View Tomcat logs
+
+```bash
+cd /opt/apache-tomcat-9.0.106/logs
+ls -l
+tail -f catalina.out
+```
+
+## Why are these commands useful?
+
+They help you diagnose issues when:
+
+- Tomcat is not starting
+- the browser cannot connect
+- the application is failing to deploy
+- you see `403 Forbidden` or other errors
+
+---
+
+# 30. Common Problems and Fixes
+
+## Problem: Tomcat page does not open
+
+### Possible causes
+
+- Tomcat is not running
+- port 8080 is blocked
+- Java is missing
+- Tomcat startup failed
+
+### Check
+
+```bash
+tail -f /opt/apache-tomcat-9.0.106/logs/catalina.out
+```
+
+---
+
+## Problem: Manager or Host Manager shows 403 Forbidden
+
+### Possible causes
+
+- `RemoteAddrValve` is still active
+- Tomcat was not restarted after editing `context.xml`
+
+### Fix
+
+- verify the Valve is commented
+- restart Tomcat
+
+---
+
+## Problem: Login prompt appears but credentials do not work
+
+### Possible causes
+
+- `tomcat-users.xml` is incorrect
+- roles are missing
+- file format is broken
+- Tomcat was not restarted
+
+### Fix
+
+- verify XML syntax
+- verify roles
+- restart Tomcat
+
+---
+
+## Problem: WAR file copied but app does not load
+
+### Possible causes
+
+- WAR build failed
+- application startup errors occurred
+- wrong context path used in browser
+
+### Fix
+
+- check logs in `logs/`
+- verify WAR name
+- verify application URL
+
+---
+
+# 31. Practice Flow Summary
+
+Here is the complete practical flow:
+
+1. install Java
+2. download and extract Tomcat
+3. start Tomcat
+4. verify Tomcat homepage
+5. enable remote access for Manager and Host Manager
+6. create admin users
+7. restart Tomcat
+8. log into Tomcat Manager
+9. build the WAR file using Maven
+10. copy the WAR into the Tomcat `webapps` folder
+11. access the deployed application in the browser
+
+---
+
+# 32. Full Command Reference
+
+## Install Java and required tools
+
+```bash
+sudo su -
+apt update
+apt install openjdk-21-jdk -y
+java -version
+apt install unzip wget -y
+```
+
+## Download and install Tomcat
+
+```bash
+cd /opt
+wget https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.106/bin/apache-tomcat-9.0.106.zip
+unzip apache-tomcat-9.0.106.zip
+cd /opt/apache-tomcat-9.0.106/bin
+chmod u+x *.sh
+sh startup.sh
+```
+
+## Optional symbolic links
+
+```bash
+ln -s /opt/apache-tomcat-9.0.106/bin/startup.sh /usr/bin/startTomcat
+ln -s /opt/apache-tomcat-9.0.106/bin/shutdown.sh /usr/bin/stopTomcat
+```
+
+## Edit Manager context
+
+```bash
+cd /opt/apache-tomcat-9.0.106/webapps/manager/META-INF
+vi context.xml
+```
+
+## Edit Host Manager context
+
+```bash
+cd /opt/apache-tomcat-9.0.106/webapps/host-manager/META-INF
+vi context.xml
+```
+
+## Edit users
+
+```bash
+cd /opt/apache-tomcat-9.0.106/conf
+vi tomcat-users.xml
+```
+
+## Optional port change
+
+```bash
+vi /opt/apache-tomcat-9.0.106/conf/server.xml
+```
+
+## Restart Tomcat
+
+```bash
+cd /opt/apache-tomcat-9.0.106/bin
+sh catalina.sh stop
+sh catalina.sh start
+```
+
+## Build WAR using Maven
+
+```bash
+mvn clean package
+```
+
+## Transfer WAR using SCP
+
+```bash
+scp -i ~/Downloads/your-key.pem target/maven-web-application.war ubuntu@<server-ip>:/opt/apache-tomcat-9.0.106/webapps/
+```
+
+---
+
+# 33. Final Notes
+
+This guide covers manual deployment, which is important because it helps you understand the basics before moving to automation.
+
+Once you are comfortable with this process, the next step is to automate it using:
+
+- Jenkins
+- Maven
+- GitHub
+- Nexus
+- Tomcat Manager deployment
+
+That becomes a real CI/CD workflow.
+
+---
+
+# ✅ Conclusion
+
+You now know how to:
+
+- install Tomcat manually
+- configure admin access
+- create Tomcat users
+- build a Maven WAR file
+- deploy the application into Tomcat
+- verify that the deployment works
+
+This is a strong base for learning Java deployment and DevOps automation.
+
+---
