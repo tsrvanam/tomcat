@@ -135,7 +135,7 @@ You are in the directory where Tomcat will be downloaded and extracted.
 # 6. Download Apache Tomcat
 
 ```bash
-wget https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.106/bin/apache-tomcat-9.0.106.zip
+wget https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.116/bin/apache-tomcat-9.0.116.zip
 ```
 
 ## Why are we doing this?
